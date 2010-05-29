@@ -11,4 +11,7 @@
   :serial t
   :components
   ((:file "hunchentoot-alpha")
-   (:file "ninthbit")))
+   (:file "ninthbit")
+   (:module :main
+            :components
+            ((:file "main")))))
