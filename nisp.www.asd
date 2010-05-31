@@ -10,7 +10,8 @@
                )
   :serial t
   :components
-  ((:file "hunchentoot-alpha")
+  ((:file "hunchentoot-vhost-fix")
+   (:file "hunchentoot-alpha")
    (:file "ninthbit")
    (:module :main
             :components
