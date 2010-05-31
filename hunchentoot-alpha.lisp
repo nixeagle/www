@@ -137,32 +137,44 @@ hunchentoot acceptor."))
   (every #'<= octets-begin octets octets-end))
 (defvar *foobar*)
 
+(defun format-commit-details (commit)
+  "Format COMMIT as a string."
+  (format nil "~A:~
+               ~@[ Added ~{~A~^, ~}.~]~
+               ~@[ Modified ~{~A~^, ~}.~]~
+               ~@[ Removed ~{~A~^, ~}.~] ~
+               With summary: ~A"
+          (assoc-value (assoc-value commit :author) :name)
+          (assoc-value commit :added)
+          (assoc-value commit :modified)
+          (assoc-value commit :removed)
+          (subseq (assoc-value commit :message) 0 (position #\NewLine (assoc-value commit :message)))))
+
 (defun format-github-commit-message (alist-message)
   (setq *foobar* alist-message)
   (let ((commits (assoc-value alist-message :commits))
         (repository (assoc-value alist-message :repository)))
-    (apply #'list
-           (format nil "~A/~A: ~D new commits, compare view at <~A>. ~:[~;~D outstanding issues.~]"
-                   (assoc-value (assoc-value repository :owner) :name)
-                   (assoc-value repository :name)
-                   (length commits)
-                   (nisp.i::shorturl-is.gd
-                    (github-compare-view-from-payload
-                     alist-message))
-                   (assoc-value repository :has-issues)
-                   (assoc-value repository :open-issues))
-           (loop for commit in commits
-              collect
-                (format nil "~A:~
-                             ~@[ Added ~{~A~^, ~}.~]~
-                             ~@[ Modified ~{~A~^, ~}.~]~
-                             ~@[ Removed ~{~A~^, ~}.~] ~
-                             With summary: ~A"
-                      (assoc-value (assoc-value commit :author) :name)
-                      (assoc-value commit :added)
-                      (assoc-value commit :modified)
-                      (assoc-value commit :removed)
-                      (subseq (assoc-value commit :message) 0 (position #\NewLine (assoc-value commit :message))))))))
+    (if (length= 1 commits)
+        (let ((commit (car commits)))
+          (format nil "~A/~A: new commit, see <~A>. ~A"
+                  (assoc-value (assoc-value repository :owner) :name)
+                  (assoc-value repository :name)
+                  (nisp.i::shorturl-is.gd
+                        (github-compare-view-from-payload
+                         alist-message))
+                  (format-commit-details commit)))
+        (apply #'list
+               (format nil "~A/~A: ~D new commits, compare view at <~A>. ~:[~;~D outstanding issues.~]"
+                       (assoc-value (assoc-value repository :owner) :name)
+                       (assoc-value repository :name)
+                       (length commits)
+                       (nisp.i::shorturl-is.gd
+                        (github-compare-view-from-payload
+                         alist-message))
+                       (assoc-value repository :has-issues)
+                       (assoc-value repository :open-issues))
+               (loop for commit in commits
+                  collect (format-commit-details commit))))))
 
 (define-easy-virtual-handler *commits*
     (commits-github :uri "/github") (payload)
