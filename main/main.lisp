@@ -17,7 +17,10 @@
      :font-family '("DejaVu Sans" "Bitstream Vera Sans"
                     "Verdana" "Helvetica" "sans-serif")
      :height 100%
-     :background-color tan)))
+     (:background-color \#ffeedd)
+     :color black)
+    ((:ul) :color white
+     :background-color \#367C48)))
 
 (define-easy-virtual-handler *main*
     (front-page :uri "/")
