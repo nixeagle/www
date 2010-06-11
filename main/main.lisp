@@ -1,6 +1,6 @@
 ;;; nothing for now until vhost is fixed up.
 (defpackage #:nixeagle.www.main
-  (:use :cl :hunchentoot :hunchentoot-vhost :nutils :cl-who :parenscript)
+  (:use :cl :hunchentoot :hunchentoot-vhost :nutils :cl-who :parenscript :css)
   (:shadowing-import-from :parenscript :switch :var))
 
 (in-package :nixeagle.www.main)
@@ -11,6 +11,13 @@
 (add-virtual-host *main* www::*nisp-1337-acceptor*)
 (add-virtual-host *main* www::*nisp-8080-acceptor*)
 (add-virtual-host *main* www::*nisp-6667-acceptor*)
+(defun front-page-css ()
+  (css ()
+    ((:body) :font-size 12pt
+     :font-family '("DejaVu Sans" "Bitstream Vera Sans"
+                    "Verdana" "Helvetica" "sans-serif")
+     :height 100%
+     :background-color tan)))
 
 (define-easy-virtual-handler *main*
     (front-page :uri "/")
@@ -18,7 +25,9 @@
   (with-html-output-to-string (*standard-output* nil :indent t)
     (:html
      (:head
-      (:title "nixeagle's site"))
+      (:title "nixeagle's site")
+      (:style :type "text/css"
+              (front-page-css)))
      (:body
 
       (:p "My projects are:")
@@ -31,7 +40,8 @@
        (:li (htmlize-github-project "ooc-mode" "Emacs major mode for ooc-lang."))
        (:li (htmlize-github-project "binary-data" "Common lisp binary data handling library."))
        (:li (htmlize-github-project "loki" "Implementation of Ioke in common lisp."))
-       (:li (htmlize-github-project "nutils" "Common lisp utilities extending alexandria.")))))))
+       (:li (htmlize-github-project "nutils" "Common lisp utilities extending alexandria."))
+       (:li (htmlize-github-project "cl-css" "Lisp to CSS translator.")))))))
 
 (defun htmlize-github-project (name summary &key (stream *standard-output*))
   "Generate html form suitable for a list entry."
