@@ -5,13 +5,13 @@
   (:nicknames :www))
 (in-package :nisp.www)
 
-(defun debug-to-irc (arg)
+(defun debug-to-irc (arg &optional (channel "#programming"))
   (print arg)
   #+nisp-devel
   (list (irc:privmsg nisp.i::*devel-bot* "#programming" arg)
                     #+ ()   (irc:privmsg nisp.i::*freenode* "#botters" arg))
   #+nisp-vps
-  (irc:privmsg nisp.i::*9b* "#programming" arg))
+  (irc:privmsg nisp.i::*9b* channel arg))
 
 (defun debug-to-bikcmp (arg)
   #+nisp-vps
@@ -114,6 +114,7 @@ hunchentoot acceptor."))
       (setq *default-handler* 'default-handler)))
 
 (defvar *github-request*)
+
 ;;; Just messing with github hooks
 (defun decode-github-hook (request)
   (setq *github-request* request)
@@ -137,13 +138,17 @@ hunchentoot acceptor."))
   (every #'<= octets-begin octets octets-end))
 (defvar *foobar*)
 
-(defun format-commit-details (commit)
-  "Format COMMIT as a string."
+(defun format-commit-details-raw (author-name added modified removed message)
   (format nil "~A:~
                ~@[ Added ~{~A~^, ~}.~]~
                ~@[ Modified ~{~A~^, ~}.~]~
                ~@[ Removed ~{~A~^, ~}.~] ~
                With summary: ~A"
+          author-name added modified removed message))
+
+(defun format-commit-details (commit)
+  "Format COMMIT as a string."
+  (format-commit-details-raw
           (assoc-value (assoc-value commit :author) :name)
           (assoc-value commit :added)
           (assoc-value commit :modified)
@@ -156,13 +161,13 @@ hunchentoot acceptor."))
         (repository (assoc-value alist-message :repository)))
     (if (length= 1 commits)
         (let ((commit (car commits)))
-          (format nil "~A/~A: new commit, see <~A>. ~A"
-                  (assoc-value (assoc-value repository :owner) :name)
-                  (assoc-value repository :name)
-                  (nisp.i::shorturl-is.gd
-                        (github-compare-view-from-payload
-                         alist-message))
-                  (format-commit-details commit)))
+          (list (format nil "~A/~A: new commit, see <~A>. ~A"
+                   (assoc-value (assoc-value repository :owner) :name)
+                   (assoc-value repository :name)
+                   (nisp.i::shorturl-is.gd
+                    (github-compare-view-from-payload
+                     alist-message))
+                   (format-commit-details commit))))
         (apply #'list
                (format nil "~A/~A: ~D new commits, compare view at <~A>. ~:[~;~D outstanding issues.~]"
                        (assoc-value (assoc-value repository :owner) :name)
@@ -176,21 +181,49 @@ hunchentoot acceptor."))
                (loop for commit in commits
                   collect (format-commit-details commit))))))
 
+(defvar *bitbucket-request*)
+(defun format-bitbucket-message (sexp)
+  (let ((repository (assoc-value sexp :repository))
+        (commits (assoc-value sexp :commits))
+        (user (assoc-value sexp :user)))
+    (let ((repo-name (assoc-value repository :name))
+          (owner (assoc-value repository :owner)))
+      (format-commit-details-raw (format nil "~A/~A" owner repo-name) nil nil nil
+                                 (assoc-value (car commits) :message)))))
+
+#+ () (debug-to-bikcmp (format-bitbucket-message (json:decode-json-from-string (assoc-value (post-parameters *bitbucket-request*) "payload" :test #'equal))))
+(define-easy-virtual-handler *commits*
+    (commits-github :uri "/bitbucket") (payload)
+    (setq *bitbucket-request* *request*)
+    (debug-to-bikcmp (format-bitbucket-message (json:decode-json-from-string payload))))
+
 (define-easy-virtual-handler *commits*
     (commits-github :uri "/github") (payload)
   (setf *github-request* *request*)
   (if (github-address-p (mapcar #'parse-integer
                                 (split-sequence:split-sequence #\. (remote-addr*))))
       (let* ((sexp  (json:decode-json-from-string payload))
-            (owner (assoc-value
-                    (assoc-value
-                     (assoc-value sexp :repository) :owner) :name)))
+             (owner (assoc-value
+                     (assoc-value
+                      (assoc-value sexp :repository) :owner) :name)))
         (loop for commit in (format-github-commit-message sexp)
-           do (unless (string= "aj00200" owner)
-                (debug-to-irc commit))
-             (when (or (string= "nixeagle" owner)
-                       (string= "aj00200" owner))
-             (debug-to-bikcmp commit)))
+           do
+           (unless (or (string= "aj00200" owner)
+                       (string= "zifnab06" owner)
+                       (string= "Gryllida" owner))
+             (debug-to-irc commit))
+           (when (and (or (string= "nixeagle" owner)
+                          (string= "aj00200" owner)
+                          (string= "zifnab06" owner)
+                          (string= "Gryllida" owner)
+                          ) (not (string= "juggler" (assoc-value
+                                                     (assoc-value sexp :repository) :name))))
+             (debug-to-bikcmp commit))
+           (when (string= "juggler" (assoc-value
+                                     (assoc-value sexp :repository) :name))
+             (debug-to-irc commit "#juggler")))
+
+
         #+ ()        (debug-to-irc (format nil "Compare view push: ~A"
                                         ;(assoc-value (cdar sexp) :name)
                                            (nisp.i::shorturl-is.gd
@@ -304,6 +337,9 @@ defaulting to 'POST'."
 (define-easy-handler (pic-hook :uri "/pic") ()
   (handle-static-file "/home/james/2010-05-26-000022_1366x768_scrot.png"))
 
+(define-easy-handler (pic-hook :uri "/juggler") ()
+  (handle-static-file "/home/james/test.jpg"))
+
 (define-easy-handler (emacs-buffer-showing-hook :uri "/emacs/buffer")
     ((name :init-form "*scratch*"))
   (setf (content-type*) "text")
@@ -399,7 +435,7 @@ defaulting to 'POST'."
     (no-cache))
   (if (= -1 tick)
       (progn (setq test "New connection!")
-             (sleep 2))
+             (sleep 1))
       (sleep *live-emacs-buffer-update-speed*))
   (loop do
        (let ((current-tick *update-count*))
