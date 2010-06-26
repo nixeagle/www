@@ -52,7 +52,9 @@
        (:li (htmlize-github-project "nutils" "Common lisp utilities extending alexandria."))
        (:li (htmlize-github-project "cl-css" "Lisp to CSS translator."))
        (:li (htmlize-github-project "ooc-mode"
-                                    "Emacs major mode for ooc.")))
+                                    "Emacs major mode for ooc."))
+       (:li (htmlize-github-project "erc-extra-commands"
+                                    "ERC library to manage commands like /cl")))
       (:p "Useful links")
       (:ul
        (:li (:a :href "http://cvs.savannah.gnu.org/viewvc/*checkout*/emacs/etc/refcards/refcard.pdf?revision=1.1&root=emacs" "GNU Emacs Reference Card")))))))
